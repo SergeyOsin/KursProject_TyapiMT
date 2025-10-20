@@ -10,6 +10,5 @@ class Turn
         List<string> code = File.ReadAllLines(filePath).ToList();
         LexicalAnalyzator lx = new LexicalAnalyzator(code);
         lx.checkStr();
-
     }
 }
