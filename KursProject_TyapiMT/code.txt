@@ -1,0 +1,11 @@
+Var adadasdasdasdasdasdas,dadadasdasdasd: integer;
+begin
+read(a);
+read(b);
+a=(a+b)*2;
+for i=1 to 5 do
+a=i+2;
+b=-a*i;
+end_for;
+write(a,b);
+end

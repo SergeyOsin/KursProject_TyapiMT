@@ -1,0 +1,15 @@
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.csproj.AssemblyReference.cache
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.GeneratedMSBuildEditorConfig.editorconfig
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.AssemblyInfoInputs.cache
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.AssemblyInfo.cs
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.csproj.CoreCompileInputs.cache
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/bin/Debug/net7.0/KursProject_TyapiMT
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/bin/Debug/net7.0/KursProject_TyapiMT.deps.json
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/bin/Debug/net7.0/KursProject_TyapiMT.runtimeconfig.json
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/bin/Debug/net7.0/KursProject_TyapiMT.dll
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/bin/Debug/net7.0/KursProject_TyapiMT.pdb
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.dll
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/refint/KursProject_TyapiMT.dll
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.pdb
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.genruntimeconfig.cache
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/ref/KursProject_TyapiMT.dll
