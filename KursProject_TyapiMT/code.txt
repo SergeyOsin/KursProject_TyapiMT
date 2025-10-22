@@ -2,6 +2,6 @@ var a,b: integer;
 begin
 read(a);
 read(b);
-b=-a;
+b=-(a+b);
 write(a,b);
 end

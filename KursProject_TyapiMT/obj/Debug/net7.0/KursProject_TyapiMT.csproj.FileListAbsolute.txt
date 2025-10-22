@@ -13,3 +13,4 @@
 /Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.pdb
 /Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/KursProject_TyapiMT.genruntimeconfig.cache
 /Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/obj/Debug/net7.0/ref/KursProject_TyapiMT.dll
+/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/bin/Debug/net7.0/code.txt
