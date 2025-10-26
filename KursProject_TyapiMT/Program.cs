@@ -1,14 +1,16 @@
 ﻿using System;
 using KursProject_TyapiMT;
+using Microsoft.Win32.SafeHandles;
 
-class Turn
+class Program
 {
-
     static void Main(string[] args)
     {
-        string filePath = "/Users/sergeyosin/RiderProjects/KursProject_TyapiMT/KursProject_TyapiMT/code.txt";
-        List<string> code = File.ReadAllLines(filePath).ToList();
+        List<string> code = File.ReadAllLines("code.txt").ToList();
         LexicalAnalyzator lx = new LexicalAnalyzator(code);
+        List<LexicalAnalyzator.Token> tokens = lx.GetTokens();
+        SyntaxAnalyzator SyntA=new SyntaxAnalyzator(tokens);
         lx.checkStr();
+        SyntA.Analyze();
     }
 }

@@ -5,7 +5,7 @@ public class Errors
     private int numbstr;
     private string error;
 
-    public Errors(int _numbstr,string _error)
+    public Errors(int _numbstr, string _error)
     {
         numbstr = _numbstr;
         error = _error;
