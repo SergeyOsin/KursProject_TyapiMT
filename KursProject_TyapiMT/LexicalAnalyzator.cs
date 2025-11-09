@@ -100,7 +100,6 @@ namespace KursProject_TyapiMT
                         return;
                     }
 
-                    // Разрешаем буквы, цифры и подчеркивания в идентификаторах
                     if (!Regex.IsMatch(word, @"^[a-zA-Z_]*$"))
                     {
                         HasError = true;

@@ -10,21 +10,10 @@ public class SyntaxAnalyzer
     public bool HasError { get; private set; } = false;
     private LexicalAnalyzator.Token Current => position < tokens.Count ? tokens[position] : null;
     private bool IsEnd => position >= tokens.Count;
-    private readonly Dictionary<string, Action> keywordHandlers;
 
     public SyntaxAnalyzer(List<LexicalAnalyzator.Token> tokens)
     {
         this.tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
-        keywordHandlers = new Dictionary<string, Action>
-        {
-            ["VAR"] = ParseVarDeclaration,
-            ["INTEGER"] = ParseType,
-            ["BEGIN"] = ParseBegin,
-            ["READ"] = ParseScan,
-            ["FOR"] = ParseForLoop,
-            ["WRITE"] = ParsePrint,
-            ["END"] = ParseEnd
-        };
     }
 
     public static bool Analyze(List<LexicalAnalyzator.Token> tokens)
@@ -96,10 +85,12 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
+
         if (!IsEnd)
         {
             Console.WriteLine(Errors.Syntax("После END не должно быть токенов"));
             HasError = true;
+            return;
         }
     }
 
@@ -116,25 +107,16 @@ public class SyntaxAnalyzer
         {
             switch (Current.Value)
             {
-                case "READ":
-                    ParseScan();
-                    break;
-                case "FOR":
-                    ParseForLoop();
-                    break;
-                case "WRITE":
-                    ParsePrint();
-                    break;
+                case "READ": ParseScan(); break;
+                case "FOR": ParseForLoop(); break;
+                case "WRITE": ParsePrint(); break;
                 default:
                     Console.WriteLine(Errors.Syntax($"Недопустимое ключевое слово в операторе: {Current.Value}"));
                     HasError = true;
-                    break;
+                    return;
             }
         }
-        else if (Current.Type == "IDENTIFIER")
-        {
-            ParseAssignment();
-        }
+        else if (Current.Type == "IDENTIFIER") ParseAssignment();
     }
 
     private void ParseVarDeclaration()
@@ -146,7 +128,6 @@ public class SyntaxAnalyzer
             return;
         }
 
-        // Проверяем, что есть хотя бы один идентификатор
         if (Current == null || Current.Type != "IDENTIFIER")
         {
             Console.WriteLine(Errors.Syntax("После VAR должен быть хотя бы один идентификатор"));
@@ -154,7 +135,6 @@ public class SyntaxAnalyzer
             return;
         }
 
-        // Парсим список идентификаторов
         bool hasIdentifiers = false;
         do
         {
@@ -168,7 +148,6 @@ public class SyntaxAnalyzer
             hasIdentifiers = true;
         } while (CheckAndMove("SEPARATOR", ","));
 
-        // Проверяем, что после списка идентификаторов идет двоеточие
         if (!CheckAndMove("SEPARATOR", ":"))
         {
             Console.WriteLine(Errors.Syntax("После списка переменных должно быть двоеточие"));
@@ -176,7 +155,6 @@ public class SyntaxAnalyzer
             return;
         }
 
-        // Проверяем, что указан тип INTEGER
         if (!CheckAndMove("KEYWORD", "INTEGER"))
         {
             Console.WriteLine(Errors.Syntax("После двоеточия должен быть указан тип INTEGER"));
@@ -184,38 +162,11 @@ public class SyntaxAnalyzer
             return;
         }
 
-        // Проверяем точку с запятой в конце
         if (!CheckAndMove("SEPARATOR", ";"))
         {
             Console.WriteLine(Errors.Syntax("Отсутствует ; после объявления переменных"));
             HasError = true;
-        }
-    }
-
-    private void ParseType()
-    {
-        if (!CheckAndMove("KEYWORD", "INTEGER"))
-        {
-            Console.WriteLine(Errors.Syntax("Ожидался тип INTEGER"));
-            HasError = true;
-        }
-    }
-
-    private void ParseBegin()
-    {
-        if (!CheckAndMove("KEYWORD", "BEGIN"))
-        {
-            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово BEGIN"));
-            HasError = true;
-        }
-    }
-
-    private void ParseEnd()
-    {
-        if (!CheckAndMove("KEYWORD", "END"))
-        {
-            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово END"));
-            HasError = true;
+            return;
         }
     }
 
@@ -253,6 +204,7 @@ public class SyntaxAnalyzer
         {
             Console.WriteLine(Errors.Syntax("После ) должна быть ;"));
             HasError = true;
+            return;
         }
     }
 
@@ -278,7 +230,9 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
+
         ParseExpression();
+        if (HasError) return;
         if (!CheckAndMove("KEYWORD", "TO"))
         {
             Console.WriteLine(Errors.Syntax("После начального значения должно быть TO"));
@@ -287,13 +241,14 @@ public class SyntaxAnalyzer
         }
 
         ParseExpression();
-
+        if (HasError) return;
         if (!CheckAndMove("KEYWORD", "DO"))
         {
             Console.WriteLine(Errors.Syntax("После конечного значения должно быть DO"));
             HasError = true;
             return;
         }
+
         bool hasBody = false;
         while (Current != null && !(Current.Type == "KEYWORD" && Current.Value == "END_FOR"))
         {
@@ -315,12 +270,13 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
-        position++;  
 
+        position++;
         if (!CheckAndMove("SEPARATOR", ";"))
         {
             Console.WriteLine(Errors.Syntax("После END_FOR должна быть ;"));
             HasError = true;
+            return;
         }
     }
 
@@ -341,10 +297,11 @@ public class SyntaxAnalyzer
         }
 
         ParseExpression();
-
+        if (HasError) return;
         while (CheckAndMove("SEPARATOR", ","))
         {
             ParseExpression();
+            if (HasError) return;
         }
 
         if (!CheckAndMove("SEPARATOR", ")"))
@@ -358,6 +315,7 @@ public class SyntaxAnalyzer
         {
             Console.WriteLine(Errors.Syntax("После ) должна быть ;"));
             HasError = true;
+            return;
         }
     }
 
@@ -378,11 +336,12 @@ public class SyntaxAnalyzer
         }
 
         ParseExpression();
-
+        if (HasError) return;
         if (!CheckAndMove("SEPARATOR", ";"))
         {
             Console.WriteLine(Errors.Syntax("После выражения должна быть ;"));
             HasError = true;
+            return;
         }
     }
 
@@ -395,13 +354,15 @@ public class SyntaxAnalyzer
             return;
         }
 
+        if (Current.Type == "OPERATOR" && Current.Value == "-") CheckAndMove("OPERATOR");
         ParseTerm();
-
-        while (Current != null && Current.Type == "OPERATOR" &&
-               (Current.Value == "+" || Current.Value == "-" || Current.Value == "*" || Current.Value == "/"))
+        if (HasError) return;
+        while (Current != null && Current.Type == "OPERATOR" && (Current.Value == "+" || Current.Value == "-" ||
+                                                                 Current.Value == "*"))
         {
             CheckAndMove("OPERATOR");
             ParseTerm();
+            if (HasError) return;
         }
     }
 
@@ -413,25 +374,34 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
-
         if (Current.Type == "IDENTIFIER" || Current.Type == "NUMBER")
         {
             CheckAndMove(Current.Type);
+            if (Current != null && Current.Type == "SEPARATOR" && Current.Value == "(")
+            {
+                Console.WriteLine(Errors.Syntax("Открывающая скобка после идентификатора"));
+                HasError = true;
+                return;
+            }
         }
         else if (Current.Type == "SEPARATOR" && Current.Value == "(")
         {
             CheckAndMove("SEPARATOR", "(");
             ParseExpression();
+            if (HasError) return;
             if (!CheckAndMove("SEPARATOR", ")"))
             {
                 Console.WriteLine(Errors.Syntax("Незакрытая скобка"));
                 HasError = true;
                 return;
             }
-        }
-        else
-        {
-            HasError = true;
+
+            if (Current != null && Current.Type == "SEPARATOR" && Current.Value == "(")
+            {
+                Console.WriteLine(Errors.Syntax("Пустое выражение в скобках"));
+                HasError = true;
+                return;
+            }
         }
     }
 
