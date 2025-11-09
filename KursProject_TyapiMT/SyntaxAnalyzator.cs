@@ -15,7 +15,6 @@ public class SyntaxAnalyzer
     public SyntaxAnalyzer(List<LexicalAnalyzator.Token> tokens)
     {
         this.tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
-
         keywordHandlers = new Dictionary<string, Action>
         {
             ["VAR"] = ParseVarDeclaration,
@@ -97,7 +96,6 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
-
         if (!IsEnd)
         {
             Console.WriteLine(Errors.Syntax("После END не должно быть токенов"));
@@ -136,11 +134,6 @@ public class SyntaxAnalyzer
         else if (Current.Type == "IDENTIFIER")
         {
             ParseAssignment();
-        }
-        else
-        {
-            Console.WriteLine(Errors.Syntax($"Неожиданный токен в операторе: {Current}"));
-            HasError = true;
         }
     }
 
@@ -285,9 +278,7 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
-
         ParseExpression();
-
         if (!CheckAndMove("KEYWORD", "TO"))
         {
             Console.WriteLine(Errors.Syntax("После начального значения должно быть TO"));
@@ -303,8 +294,6 @@ public class SyntaxAnalyzer
             HasError = true;
             return;
         }
-
-        // Парсим тело цикла
         bool hasBody = false;
         while (Current != null && !(Current.Type == "KEYWORD" && Current.Value == "END_FOR"))
         {
@@ -320,12 +309,13 @@ public class SyntaxAnalyzer
             return;
         }
 
-        if (!CheckAndMove("KEYWORD", "END_FOR"))
+        if (Current == null || Current.Type != "KEYWORD" || Current.Value != "END_FOR")
         {
             Console.WriteLine(Errors.Syntax("Цикл FOR должен завершаться END_FOR"));
             HasError = true;
             return;
         }
+        position++;  
 
         if (!CheckAndMove("SEPARATOR", ";"))
         {
@@ -405,10 +395,8 @@ public class SyntaxAnalyzer
             return;
         }
 
-        // Парсим первый терм
         ParseTerm();
 
-        // Парсим дополнительные термы с операторами
         while (Current != null && Current.Type == "OPERATOR" &&
                (Current.Value == "+" || Current.Value == "-" || Current.Value == "*" || Current.Value == "/"))
         {
@@ -451,7 +439,6 @@ public class SyntaxAnalyzer
     {
         if (IsEnd)
         {
-            Console.WriteLine(Errors.Syntax($"Неожиданный конец файла. Ожидался {type}({value})"));
             HasError = true;
             return false;
         }

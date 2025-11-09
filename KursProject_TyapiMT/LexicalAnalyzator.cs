@@ -21,15 +21,11 @@ namespace KursProject_TyapiMT
         {
             public string Type { get; }
             public string Value { get; }
-            public int Line { get; }
-            public int Position { get; }
 
-            public Token(string type, string value, int line, int position)
+            public Token(string type, string value)
             {
                 Type = type;
                 Value = value;
-                Line = line;
-                Position = position;
             }
         }
 
@@ -66,7 +62,7 @@ namespace KursProject_TyapiMT
 
                 if (c is ':' or ';' or ',' or '(' or ')')
                 {
-                    Tokens.Add(new Token("SEPARATOR", c.ToString(), line, linePos));
+                    Tokens.Add(new Token("SEPARATOR", c.ToString()));
                     pos++;
                     linePos++;
                     continue;
@@ -75,7 +71,7 @@ namespace KursProject_TyapiMT
                 // Операторы
                 if (c is '+' or '-' or '*' or '=' or '/')
                 {
-                    Tokens.Add(new Token("OPERATOR", c.ToString(), line, linePos));
+                    Tokens.Add(new Token("OPERATOR", c.ToString()));
                     pos++;
                     linePos++;
                     continue;
@@ -86,7 +82,7 @@ namespace KursProject_TyapiMT
                 {
                     int start = linePos;
                     string num = ReadWhile(pos, char.IsDigit, input, out pos);
-                    Tokens.Add(new Token("NUMBER", num, line, start));
+                    Tokens.Add(new Token("NUMBER", num));
                     linePos += num.Length;
                     continue;
                 }
@@ -114,9 +110,9 @@ namespace KursProject_TyapiMT
 
                     string upperWord = word.ToUpper();
                     if (keywords.Contains(upperWord))
-                        Tokens.Add(new Token("KEYWORD", upperWord, line, start));
+                        Tokens.Add(new Token("KEYWORD", upperWord));
                     else
-                        Tokens.Add(new Token("IDENTIFIER", word, line, start));
+                        Tokens.Add(new Token("IDENTIFIER", word));
                     linePos += word.Length;
                     continue;
                 }

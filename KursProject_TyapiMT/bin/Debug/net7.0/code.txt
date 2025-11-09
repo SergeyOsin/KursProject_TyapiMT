@@ -1,10 +1,9 @@
-var a,b: integer;
+var a,b,i: integer;
 begin
-read(a);
-read(b);
-a=-b*a+b;
-For i=1 to 3 do
-b=i*a;
+a=3;
+b=*+a;
+for i=1 to 3 do
+b=a+i;
 end_for;
 write(a,b);
-END
+end
