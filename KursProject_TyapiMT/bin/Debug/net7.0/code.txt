@@ -1,10 +1,7 @@
-var a,b,i: integer;
-begin
+var a,b,c: integer;
+begIN
 read(a);
 read(b);
-b=-(a+b)();
-for i=1 TO 3 do
-a=b+i;
-end_for;
+a=a+b*();
 write(a,b);
 END

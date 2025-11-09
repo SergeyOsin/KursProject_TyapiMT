@@ -2,16 +2,15 @@ using System.Text.RegularExpressions;
 
 namespace KursProject_TyapiMT;
 
-public class SemanticAlanyz
+public class SemanticAlanyzator
 {
-    private const int MAXLENIDEN = 12;
     private Errors errors;
-    private List<string> namesIden { get; set; }
+    private Dictionary<string, bool> idents;
     private List<string> code;
-    public SemanticAlanyz(List<string> _code)
+    public SemanticAlanyzator(List<string> _code)
     {
         code = _code;
-        namesIden = new List<string>();
+        idents=new Dictionary<string, bool>();
     }
 
     private (bool,string) CheckSemantic()
@@ -25,12 +24,9 @@ public class SemanticAlanyz
             string cleanId = identifier.Trim();
             if (!string.IsNullOrEmpty(cleanId))
             {
-                if (cleanId.Length > MAXLENIDEN)
-                    return (false, "Превышена максимальная длина");
-
                 if (!Regex.IsMatch(cleanId, @"^[a-zA-Z][a-zA-Z0-9]*$"))
                     return (false, "Идентификатор содержит лишние символы");
-                namesIden.Add(cleanId);
+                idents[cleanId] = true;
             }
         }
         return (true, " ");
@@ -39,8 +35,7 @@ public class SemanticAlanyz
     {
         if (!CheckSemantic().Item1)
         {
-            errors = new Errors(0, CheckSemantic().Item2);
-            errors.ToString();
+            Console.Write(Errors.Semantic(1, CheckSemantic().Item2));
             return;
         }
     }
