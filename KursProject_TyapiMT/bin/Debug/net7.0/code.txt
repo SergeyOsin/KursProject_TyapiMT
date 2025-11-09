@@ -1,9 +1,9 @@
 var a,b,i: integer;
-begin
+BEGIN
 a=3;
-b=*+a;
+a=b;
 for i=1 to 3 do
-b=a+i;
+b=a+i; 
 end_for;
 write(a,b);
-end
+eNd
