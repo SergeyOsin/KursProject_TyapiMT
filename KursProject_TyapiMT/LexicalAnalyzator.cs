@@ -7,75 +7,47 @@ namespace KursProject_TyapiMT
     public class LexicalAnalyzator
     {
         private const int MAXLENIDEN = 12;
-        private List<string> code;
-        private List<string> keywords { get; set; }
-        private List<Token> tokens { get; set; }
-        private bool hasError = false;
-
-        public LexicalAnalyzator(List<string> _code)
+        private readonly List<string> code;
+        private readonly List<string> keywords = new()
         {
-            code = _code;
-            keywords = new List<string>()
-            {
-                "VAR", "INTEGER", "BEGIN", "READ", "FOR", "TO", "DO", "END_FOR", "WRITE", "END"
-            };
-            tokens = new List<Token>();
-        }
+            "VAR", "INTEGER", "BEGIN", "READ", "FOR", "TO", "DO", "END_FOR", "WRITE", "END"
+        };
+        public List<Token> Tokens { get; } = new();
+        public bool HasError { get; private set; }
+
+        public LexicalAnalyzator(List<string> _code) => code = _code;
 
         public class Token
         {
-            public string Type { get; set; }
-            public string Value { get; set; }
-            public int Line { get; set; }
-            public int Position { get; set; }
+            public string Type { get; }
+            public string Value { get; }
 
-            public Token(string type, string value, int line, int position)
+            public Token(string type, string value)
             {
                 Type = type;
                 Value = value;
-                Line = line;
-                Position = position;
-            }
-
-            public override string ToString()
-            {
-                return $"{Type} '{Value}' (строка {Line}, позиция {Position})";
             }
         }
 
-        public void Analyze()
+        public bool Analyze()
         {
-            tokens.Clear();
-            hasError = false;
-
-            if (code.Count == 0)
-            {
-                PrintError("Пустой входной файл");
-                return;
-            }
-
-            string fullCode = string.Join(" ", code); // Объединяем все строки в одну для общего токенизирования
+            Tokens.Clear();
+            HasError = false;
+            string fullCode = string.Join("\n", code);
             Tokenize(fullCode);
-
-            if (!hasError)
-            {
-                PrintResults();
-            }
+            return !HasError;
         }
 
         private void Tokenize(string input)
         {
-            int pos = 0;
-            int line = 1;
-            int linePos = 0;
-
-            while (pos < input.Length)
+            int pos = 0, line = 1, linePos = 0;
+            while (pos < input.Length && !HasError)
             {
-                char current = input[pos];
-
-                if (char.IsWhiteSpace(current))
+                char c = input[pos];
+                
+                if (char.IsWhiteSpace(c))
                 {
-                    if (current == '\n')
+                    if (c == '\n')
                     {
                         line++;
                         linePos = 0;
@@ -88,98 +60,75 @@ namespace KursProject_TyapiMT
                     continue;
                 }
 
-                // Проверяем на separators: :, ;, ,, (, )
-                if (current == ':' || current == ';' || current == ',' || current == '(' || current == ')')
+                if (c is ':' or ';' or ',' or '(' or ')')
                 {
-                    tokens.Add(new Token("SEPARATOR", current.ToString(), line, linePos));
+                    Tokens.Add(new Token("SEPARATOR", c.ToString()));
                     pos++;
                     linePos++;
                     continue;
                 }
 
-                // Проверяем на operators: +, -, *, =
-                if (current == '+' || current == '-' || current == '*' || current == '=')
+                // Операторы
+                if (c is '+' or '-' or '*' or '=' or '/')
                 {
-                    tokens.Add(new Token("OPERATOR", current.ToString(), line, linePos));
+                    Tokens.Add(new Token("OPERATOR", c.ToString()));
                     pos++;
                     linePos++;
                     continue;
                 }
 
-                // Проверяем на числа
-                if (char.IsDigit(current))
+                // Числа
+                if (char.IsDigit(c))
                 {
-                    string number = "";
-                    int startPos = linePos;
-                    while (pos < input.Length && char.IsDigit(input[pos]))
-                    {
-                        number += input[pos];
-                        pos++;
-                        linePos++;
-                    }
-                    tokens.Add(new Token("NUMBER", number, line, startPos));
+                    int start = linePos;
+                    string num = ReadWhile(pos, char.IsDigit, input, out pos);
+                    Tokens.Add(new Token("NUMBER", num));
+                    linePos += num.Length;
                     continue;
                 }
 
-                // Проверяем на идентификаторы или ключевые слова
-                if (char.IsLetter(current))
+                // Идентификаторы и ключевые слова
+                if (char.IsLetter(c) || c == '_')
                 {
-                    string word = "";
-                    int startPos = linePos;
-                    while (pos < input.Length && (char.IsLetterOrDigit(input[pos]) || input[pos] == '_'))
+                    int start = linePos;
+                    string word = ReadWhile(pos, IsIdentifierChar, input, out pos);
+
+                    if (word.Length > MAXLENIDEN)
                     {
-                        word += input[pos];
-                        pos++;
-                        linePos++;
+                        HasError = true;
+                        Console.WriteLine(Errors.Lexical("Превышена максимальная длина идентификатора"));
+                        return;
                     }
 
-                    if (keywords.Contains(word.ToUpper()))
+                    // Разрешаем буквы, цифры и подчеркивания в идентификаторах
+                    if (!Regex.IsMatch(word, @"^[a-zA-Z_]*$"))
                     {
-                        tokens.Add(new Token("KEYWORD", word.ToUpper(), line, startPos));
+                        HasError = true;
+                        Console.Write(Errors.Lexical("Недопустимые символы в идентификаторе"));
+                        return;
                     }
+
+                    string upperWord = word.ToUpper();
+                    if (keywords.Contains(upperWord))
+                        Tokens.Add(new Token("KEYWORD", upperWord));
                     else
-                    {
-                        if (word.Length > MAXLENIDEN)
-                        {
-                            PrintError($"Превышена максимальная длина идентификатора: {word} (строка {line})");
-                            return;
-                        }
-                        if (!Regex.IsMatch(word, @"^[a-zA-Z][a-zA-Z0-9]*$"))
-                        {
-                            PrintError($"Некорректные символы в имени идентификатора: {word} (строка {line})");
-                            return;
-                        }
-                        tokens.Add(new Token("IDENTIFIER", word, line, startPos));
-                    }
+                        Tokens.Add(new Token("IDENTIFIER", word));
+                    linePos += word.Length;
                     continue;
                 }
-
-                // Неизвестный символ
-                PrintError($"Неизвестный символ: {current} (строка {line}, позиция {linePos})");
-                pos++;
-                linePos++;
+                HasError = true;
+                return;
             }
         }
 
-        private void PrintError(string message)
+        private string ReadWhile(int startPos, Func<char, bool> predicate, string input, out int endPos)
         {
-            hasError = true;
-            Console.WriteLine($"Лексическая ошибка: {message}");
+            endPos = startPos;
+            while (endPos < input.Length && predicate(input[endPos]))
+                endPos++;
+            return input.Substring(startPos, endPos - startPos);
         }
 
-        private void PrintResults()
-        {
-            Console.WriteLine("\nРАСПОЗНАННЫЕ ТОКЕНЫ:");
-            foreach (var token in tokens)
-            {
-                Console.WriteLine($"  {token}");
-            }
-            Console.WriteLine($"\nВсего токенов: {tokens.Count}");
-        }
-
-        public List<Token> GetTokens() => tokens;
-
-        public void checkStr() => Analyze();
+        private bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
     }
 }
-

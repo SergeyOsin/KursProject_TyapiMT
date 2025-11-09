@@ -1,18 +1,37 @@
 namespace KursProject_TyapiMT;
 
+public enum ErrorType
+{
+    Lexical,
+    Syntax,
+    Semantic
+}
 public class Errors
 {
-    private int numbstr;
-    private string error;
+    private string Message { get; }
+    private ErrorType Type { get; }
 
-    public Errors(int _numbstr, string _error)
+    public Errors(string message, ErrorType type)
     {
-        numbstr = _numbstr;
-        error = _error;
+        Message = message;
+        Type = type;
     }
+
     public override string ToString()
     {
-        return ($"Ошибка в {numbstr} строке:\n{error}");
+        string prefix = Type switch
+        {
+            ErrorType.Lexical => "Лексический анализатор",
+            ErrorType.Syntax => "Синтаксический анализатор",
+            ErrorType.Semantic => "Семантический анализатор"
+        };
+        return $"{prefix}:\n {Message}";
     }
-    
+    public static Errors Lexical(string message) =>
+        new Errors(message, ErrorType.Lexical);
+    public static Errors Syntax(string message) =>
+        new Errors(message, ErrorType.Syntax);
+    public static Errors Semantic(string message) =>
+        new Errors(message, ErrorType.Semantic);
 }
+
