@@ -1,42 +1,41 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
+using KursProject_TyapiMT;
 
-namespace KursProject_TyapiMT;
-
-public class SemanticAlanyzator
+public class SemanticAnalyzer
 {
-    private Errors errors;
-    private Dictionary<string, bool> idents;
-    private List<string> code;
-    public SemanticAlanyzator(List<string> _code)
+    private readonly List<LexicalAnalyzator.Token> tokens;
+    private readonly Dictionary<string, bool> idents = new();
+    public bool HasError { get; private set; }
+
+    public SemanticAnalyzer(List<LexicalAnalyzator.Token> tokens)
     {
-        code = _code;
-        idents=new Dictionary<string, bool>();
+        this.tokens = tokens;
+        HasError = false;
     }
 
-    private (bool,string) CheckSemantic()
+    public static bool Analyze(List<LexicalAnalyzator.Token> tokens)
     {
-        string firststr = code[0].ToUpper();
-        int index = firststr.IndexOf(':');
-        string idenPart = firststr.Substring(3, index - 3).Trim();
-        string[] identifiers = idenPart.Split(',');
-        foreach (string identifier in identifiers)
-        {
-            string cleanId = identifier.Trim();
-            if (!string.IsNullOrEmpty(cleanId))
-            {
-                if (!Regex.IsMatch(cleanId, @"^[a-zA-Z][a-zA-Z0-9]*$"))
-                    return (false, "Идентификатор содержит лишние символы");
-                idents[cleanId] = true;
-            }
-        }
-        return (true, " ");
+        var analyzer = new SemanticAnalyzer(tokens);
+        analyzer.Run();
+        return !analyzer.HasError;
     }
-    public void TurnSemantic()
+
+    private void Run()
     {
-        if (!CheckSemantic().Item1)
+        foreach (var token in tokens)
         {
-            Console.Write(Errors.Semantic(1, CheckSemantic().Item2));
-            return;
+            if (token.Type == "IDENTIFIER")
+                idents[token.Value] = false;
         }
+
+        CheckSemantic();
     }
+
+    private void CheckSemantic()
+    {
+    }
+
 }

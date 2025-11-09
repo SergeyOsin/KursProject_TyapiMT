@@ -1,560 +1,466 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using KursProject_TyapiMT;
 
-namespace KursProject_TyapiMT
+public class SyntaxAnalyzer
 {
-    public abstract class SyntaxNode
+    private List<LexicalAnalyzator.Token> tokens;
+    private int position = 0;
+    public bool HasError { get; private set; } = false;
+    private LexicalAnalyzator.Token Current => position < tokens.Count ? tokens[position] : null;
+    private bool IsEnd => position >= tokens.Count;
+    private readonly Dictionary<string, Action> keywordHandlers;
+
+    public SyntaxAnalyzer(List<LexicalAnalyzator.Token> tokens)
     {
-        public abstract void Print(int indent = 0);
-    }
-    public class ProgramNode : SyntaxNode
-    {
-        public DeclListNode DeclList { get; }
-        public StmtListNode StmtList { get; }
+        this.tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
 
-        public ProgramNode(DeclListNode declList, StmtListNode stmtList)
+        keywordHandlers = new Dictionary<string, Action>
         {
-            DeclList = declList;
-            StmtList = stmtList;
-        }
-
-        public override void Print(int indent = 0)
-        {
-            Console.WriteLine($"{new string(' ', indent)}Program");
-            DeclList.Print(indent + 2);
-            StmtList.Print(indent + 2);
-        }
-    }
-    
-    public class DeclListNode : SyntaxNode
-    {
-        public List<string> Identifiers { get; }
-
-        public DeclListNode(List<string> identifiers)
-        {
-            Identifiers = identifiers;
-        }
-
-        public override void Print(int indent = 0)
-        {
-            Console.WriteLine($"{new string(' ', indent)}DeclList: {string.Join(", ", Identifiers)}");
-        }
+            ["VAR"] = ParseVarDeclaration,
+            ["INTEGER"] = ParseType,
+            ["BEGIN"] = ParseBegin,
+            ["READ"] = ParseScan,
+            ["FOR"] = ParseForLoop,
+            ["WRITE"] = ParsePrint,
+            ["END"] = ParseEnd
+        };
     }
 
-    // Узел списка операторов
-    public class StmtListNode : SyntaxNode
+    public static bool Analyze(List<LexicalAnalyzator.Token> tokens)
     {
-        public List<StmtNode> Statements { get; }
-
-        public StmtListNode(List<StmtNode> statements)
-        {
-            Statements = statements;
-        }
-
-        public override void Print(int indent = 0)
-        {
-            Console.WriteLine($"{new string(' ', indent)}StmtList");
-            foreach (var stmt in Statements)
-            {
-                stmt.Print(indent + 2);
-            }
-        }
-    }
-    
-    public abstract class StmtNode : SyntaxNode { }
-    
-    public class ReadStmtNode : StmtNode
-    {
-        public List<string> Identifiers { get; }
-
-        public ReadStmtNode(List<string> identifiers)
-        {
-            Identifiers = identifiers;
-        }
-
-        public override void Print(int indent = 0)
-        {
-            Console.WriteLine($"{new string(' ', indent)}ReadStmt: {string.Join(", ", Identifiers)}");
-        }
+        var analyzer = new SyntaxAnalyzer(tokens);
+        analyzer.ParseProgram();
+        return !analyzer.HasError;
     }
 
-    // Узел WRITE
-    public class WriteStmtNode : StmtNode
+    public void ParseProgram()
     {
-        public List<string> Identifiers { get; }
-
-        public WriteStmtNode(List<string> identifiers)
+        if (!tokens.Any(t => t.Type == "KEYWORD" && t.Value == "BEGIN"))
         {
-            Identifiers = identifiers;
+            Console.WriteLine(Errors.Syntax("Программа должна начинаться с BEGIN"));
+            HasError = true;
+            return;
         }
 
-        public override void Print(int indent = 0)
+        if (!tokens.Any(t => t.Type == "KEYWORD" && t.Value == "END"))
         {
-            Console.WriteLine($"{new string(' ', indent)}WriteStmt: {string.Join(", ", Identifiers)}");
-        }
-    }
-    
-    public class AssignStmtNode : StmtNode
-    {
-        public string Identifier { get; }
-        public ExprNode Expression { get; }
-
-        public AssignStmtNode(string identifier, ExprNode expression)
-        {
-            Identifier = identifier;
-            Expression = expression;
+            Console.WriteLine(Errors.Syntax("Программа должна завершаться END"));
+            HasError = true;
+            return;
         }
 
-        public override void Print(int indent = 0)
+        if (!tokens.Any(t => t.Type == "KEYWORD" && t.Value == "VAR"))
         {
-            Console.WriteLine($"{new string(' ', indent)}AssignStmt: {Identifier} =");
-            Expression.Print(indent + 2);
+            Console.WriteLine(Errors.Syntax("Программа должна содержать объявление переменных с помощью VAR"));
+            HasError = true;
+            return;
+        }
+
+        if (!tokens.Any(t => t.Type == "KEYWORD" && t.Value == "INTEGER"))
+        {
+            Console.WriteLine(Errors.Syntax("Программа должна содержать объявление типа INTEGER"));
+            HasError = true;
+            return;
+        }
+
+        bool hasVarDeclaration = false;
+        while (Current != null && Current.Type == "KEYWORD" && Current.Value == "VAR")
+        {
+            hasVarDeclaration = true;
+            ParseVarDeclaration();
+            if (HasError) return;
+        }
+
+        if (!hasVarDeclaration)
+        {
+            Console.WriteLine(Errors.Syntax("Отсутствует объявление переменных VAR"));
+            HasError = true;
+            return;
+        }
+
+        if (!CheckAndMove("KEYWORD", "BEGIN"))
+        {
+            HasError = true;
+            return;
+        }
+
+        while (Current != null && !(Current.Type == "KEYWORD" && Current.Value == "END"))
+        {
+            ParseStatement();
+            if (HasError) return;
+        }
+
+        if (!CheckAndMove("KEYWORD", "END"))
+        {
+            HasError = true;
+            return;
+        }
+
+        if (!IsEnd)
+        {
+            Console.WriteLine(Errors.Syntax("После END не должно быть токенов"));
+            HasError = true;
         }
     }
 
-    // Узел FOR
-    public class ForStmtNode : StmtNode
+    private void ParseStatement()
     {
-        public string Identifier { get; }
-        public ExprNode ToExpr { get; }
-        public StmtListNode Body { get; }
-
-        public ForStmtNode(string identifier, ExprNode toExpr, StmtListNode body)
+        if (IsEnd)
         {
-            Identifier = identifier;
-            ToExpr = toExpr;
-            Body = body;
+            Console.WriteLine(Errors.Syntax("Незавершенное выражение"));
+            HasError = true;
+            return;
         }
 
-        public override void Print(int indent = 0)
+        if (Current.Type == "KEYWORD")
         {
-            Console.WriteLine($"{new string(' ', indent)}ForStmt: FOR {Identifier} TO ... DO");
-            ToExpr.Print(indent + 2);
-            Body.Print(indent + 2);
+            switch (Current.Value)
+            {
+                case "READ":
+                    ParseScan();
+                    break;
+                case "FOR":
+                    ParseForLoop();
+                    break;
+                case "WRITE":
+                    ParsePrint();
+                    break;
+                default:
+                    Console.WriteLine(Errors.Syntax($"Недопустимое ключевое слово в операторе: {Current.Value}"));
+                    HasError = true;
+                    break;
+            }
         }
-    }
-    
-    public abstract class ExprNode : SyntaxNode { }
-
-    // Узел бинарной операции
-    public class BinaryOpNode : ExprNode
-    {
-        public ExprNode Left { get; }
-        public string Operator { get; }
-        public ExprNode Right { get; }
-
-        public BinaryOpNode(ExprNode left, string op, ExprNode right)
+        else if (Current.Type == "IDENTIFIER")
         {
-            Left = left;
-            Operator = op;
-            Right = right;
+            ParseAssignment();
         }
-
-        public override void Print(int indent = 0)
+        else
         {
-            Console.WriteLine($"{new string(' ', indent)}BinaryOp: {Operator}");
-            Left.Print(indent + 2);
-            Right.Print(indent + 2);
-        }
-    }
-    
-    public class UnaryOpNode : ExprNode
-    {
-        public string Operator { get; }
-        public ExprNode Operand { get; }
-
-        public UnaryOpNode(string op, ExprNode operand)
-        {
-            Operator = op;
-            Operand = operand;
-        }
-
-        public override void Print(int indent = 0)
-        {
-            Console.WriteLine($"{new string(' ', indent)}UnaryOp: {Operator}");
-            Operand.Print(indent + 2);
+            Console.WriteLine(Errors.Syntax($"Неожиданный токен в операторе: {Current}"));
+            HasError = true;
         }
     }
 
-    // Узел идентификатора
-    public class IdentifierNode : ExprNode
+    private void ParseVarDeclaration()
     {
-        public string Name { get; }
-
-        public IdentifierNode(string name)
+        if (!CheckAndMove("KEYWORD", "VAR"))
         {
-            Name = name;
+            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово VAR"));
+            HasError = true;
+            return;
         }
 
-        public override void Print(int indent = 0)
+        // Проверяем, что есть хотя бы один идентификатор
+        if (Current == null || Current.Type != "IDENTIFIER")
         {
-            Console.WriteLine($"{new string(' ', indent)}Identifier: {Name}");
+            Console.WriteLine(Errors.Syntax("После VAR должен быть хотя бы один идентификатор"));
+            HasError = true;
+            return;
+        }
+
+        // Парсим список идентификаторов
+        bool hasIdentifiers = false;
+        do
+        {
+            if (!CheckAndMove("IDENTIFIER"))
+            {
+                Console.WriteLine(Errors.Syntax("Ожидался идентификатор в списке переменных"));
+                HasError = true;
+                return;
+            }
+
+            hasIdentifiers = true;
+        } while (CheckAndMove("SEPARATOR", ","));
+
+        // Проверяем, что после списка идентификаторов идет двоеточие
+        if (!CheckAndMove("SEPARATOR", ":"))
+        {
+            Console.WriteLine(Errors.Syntax("После списка переменных должно быть двоеточие"));
+            HasError = true;
+            return;
+        }
+
+        // Проверяем, что указан тип INTEGER
+        if (!CheckAndMove("KEYWORD", "INTEGER"))
+        {
+            Console.WriteLine(Errors.Syntax("После двоеточия должен быть указан тип INTEGER"));
+            HasError = true;
+            return;
+        }
+
+        // Проверяем точку с запятой в конце
+        if (!CheckAndMove("SEPARATOR", ";"))
+        {
+            Console.WriteLine(Errors.Syntax("Отсутствует ; после объявления переменных"));
+            HasError = true;
         }
     }
-    
-    public class NumberNode : ExprNode
+
+    private void ParseType()
     {
-        public string Value { get; }
-
-        public NumberNode(string value)
+        if (!CheckAndMove("KEYWORD", "INTEGER"))
         {
-            Value = value;
-        }
-
-        public override void Print(int indent = 0)
-        {
-            Console.WriteLine($"{new string(' ', indent)}Number: {Value}");
+            Console.WriteLine(Errors.Syntax("Ожидался тип INTEGER"));
+            HasError = true;
         }
     }
 
-    public class SyntaxAnalyzator
+    private void ParseBegin()
     {
-        private List<LexicalAnalyzator.Token> tokens;
-        private int currentIndex;
-        private bool hasError;
-        private ProgramNode syntaxTree;
-
-        public SyntaxAnalyzator(List<LexicalAnalyzator.Token> _tokens)
+        if (!CheckAndMove("KEYWORD", "BEGIN"))
         {
-            tokens = _tokens;
-            currentIndex = 0;
-            hasError = false;
+            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово BEGIN"));
+            HasError = true;
+        }
+    }
+
+    private void ParseEnd()
+    {
+        if (!CheckAndMove("KEYWORD", "END"))
+        {
+            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово END"));
+            HasError = true;
+        }
+    }
+
+    private void ParseScan()
+    {
+        if (!CheckAndMove("KEYWORD", "READ"))
+        {
+            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово READ"));
+            HasError = true;
+            return;
         }
 
-        public void Analyze()
+        if (!CheckAndMove("SEPARATOR", "("))
         {
-            hasError = false;
-            currentIndex = 0;
-            syntaxTree = ParseProgram();
-
-            if (!hasError && currentIndex < tokens.Count)
-            {
-                PrintError($"Неожиданный токен: {tokens[currentIndex]}");
-            }
-            else if (!hasError)
-            {
-                Console.WriteLine("Синтаксический анализ завершен успешно! Построено дерево:");
-                syntaxTree.Print();
-            }
+            Console.WriteLine(Errors.Syntax("После READ должна быть ("));
+            HasError = true;
+            return;
         }
 
-        private ProgramNode ParseProgram()
+        if (!CheckAndMove("IDENTIFIER"))
         {
-            DeclListNode declList = null;
-            StmtListNode stmtList = null;
-
-            if (Match("KEYWORD", "VAR"))
-            {
-                declList = ParseDeclList();
-                if (Match("SEPARATOR", ":"))
-                {
-                    if (Match("KEYWORD", "INTEGER"))
-                    {
-                        if (Match("SEPARATOR", ";"))
-                        {
-                            if (Match("KEYWORD", "BEGIN"))
-                            {
-                                stmtList = ParseStmtList();
-                                if (!Match("KEYWORD", "END"))
-                                {
-                                    PrintError("Ожидается END в конце программы");
-                                }
-                            }
-                            else
-                            {
-                                PrintError("Ожидается BEGIN после объявлений");
-                            }
-                        }
-                        else
-                        {
-                            PrintError("Ожидается ; после INTEGER");
-                        }
-                    }
-                    else
-                    {
-                        PrintError("Ожидается INTEGER после :");
-                    }
-                }
-                else
-                {
-                    PrintError("Ожидается : после объявлений");
-                }
-            }
-            else
-            {
-                PrintError("Программа должна начинаться с VAR");
-            }
-
-            return hasError ? null : new ProgramNode(declList, stmtList);
+            Console.WriteLine(Errors.Syntax("После ( должен быть идентификатор"));
+            HasError = true;
+            return;
         }
 
-        private DeclListNode ParseDeclList()
+        if (!CheckAndMove("SEPARATOR", ")"))
         {
-            var identifiers = new List<string>();
-            if (Peek("IDENTIFIER"))
-            {
-                identifiers.Add(tokens[currentIndex].Value);
-                Match("IDENTIFIER");
-                while (Match("SEPARATOR", ","))
-                {
-                    if (Peek("IDENTIFIER"))
-                    {
-                        identifiers.Add(tokens[currentIndex].Value);
-                        Match("IDENTIFIER");
-                    }
-                    else
-                    {
-                        PrintError("Ожидается IDENTIFIER после ,");
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                PrintError("Ожидается хотя бы один IDENTIFIER в объявлениях");
-            }
-            return new DeclListNode(identifiers);
+            Console.WriteLine(Errors.Syntax("После идентификатора должна быть )"));
+            HasError = true;
+            return;
         }
 
-        private StmtListNode ParseStmtList()
+        if (!CheckAndMove("SEPARATOR", ";"))
         {
-            var statements = new List<StmtNode>();
-            while (!Peek("KEYWORD", "END") && !Peek("KEYWORD", "END_FOR") && !hasError)
-            {
-                var stmt = ParseStmt();
-                if (stmt != null)
-                    statements.Add(stmt);
-            }
-            return new StmtListNode(statements);
+            Console.WriteLine(Errors.Syntax("После ) должна быть ;"));
+            HasError = true;
+        }
+    }
+
+    private void ParseForLoop()
+    {
+        if (!CheckAndMove("KEYWORD", "FOR"))
+        {
+            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово FOR"));
+            HasError = true;
+            return;
         }
 
-        private StmtNode ParseStmt()
+        if (!CheckAndMove("IDENTIFIER"))
         {
-            if (Match("KEYWORD", "READ"))
-            {
-                if (Match("SEPARATOR", "("))
-                {
-                    var idList = ParseIDList();
-                    if (Match("SEPARATOR", ")"))
-                    {
-                        if (Match("SEPARATOR", ";"))
-                        {
-                            return new ReadStmtNode(idList);
-                        }
-                        else
-                        {
-                            PrintError("Ожидается ; после READ");
-                        }
-                    }
-                    else
-                    {
-                        PrintError("Ожидается ) после параметров READ");
-                    }
-                }
-                else
-                {
-                    PrintError("Ожидается ( после READ");
-                }
-            }
-            else if (Match("KEYWORD", "WRITE"))
-            {
-                if (Match("SEPARATOR", "("))
-                {
-                    var idList = ParseIDList();
-                    if (Match("SEPARATOR", ")"))
-                    {
-                        if (Match("SEPARATOR", ";"))
-                        {
-                            return new WriteStmtNode(idList);
-                        }
-                        else
-                        {
-                            PrintError("Ожидается ; после WRITE");
-                        }
-                    }
-                    else
-                    {
-                        PrintError("Ожидается ) после параметров WRITE");
-                    }
-                }
-                else
-                {
-                    PrintError("Ожидается ( после WRITE");
-                }
-            }
-            else if (Peek("IDENTIFIER") && PeekNext("OPERATOR", "="))
-            {
-                var ident = tokens[currentIndex].Value;
-                Match("IDENTIFIER");
-                Match("OPERATOR", "=");
-                var expr = ParseExpr();
-                if (Match("SEPARATOR", ";"))
-                {
-                    return new AssignStmtNode(ident, expr);
-                }
-                else
-                {
-                    PrintError("Ожидается ; после присваивания");
-                }
-            }
-            else if (Match("KEYWORD", "FOR"))
-            {
-                if (Peek("IDENTIFIER"))
-                {
-                    var ident = tokens[currentIndex].Value;
-                    Match("IDENTIFIER");
-                    if (Match("KEYWORD", "TO"))
-                    {
-                        var toExpr = ParseExpr();
-                        if (Match("KEYWORD", "DO"))
-                        {
-                            var body = ParseStmtList();
-                            if (Match("KEYWORD", "END_FOR"))
-                            {
-                                return new ForStmtNode(ident, toExpr, body);
-                            }
-                            else
-                            {
-                                PrintError("Ожидается END_FOR после цикла FOR");
-                            }
-                        }
-                        else
-                        {
-                            PrintError("Ожидается DO после TO в FOR");
-                        }
-                    }
-                    else
-                    {
-                        PrintError("Ожидается TO после IDENTIFIER в FOR");
-                    }
-                }
-                else
-                {
-                    PrintError("Ожидается IDENTIFIER после FOR");
-                }
-            }
-            else
-            {
-                PrintError($"Неожиданный токен в операторе: {tokens[currentIndex]}");
-                currentIndex++;
-            }
-            return null;
+            Console.WriteLine(Errors.Syntax("После FOR должен быть идентификатор"));
+            HasError = true;
+            return;
         }
 
-        private List<string> ParseIDList()
+        if (!CheckAndMove("OPERATOR", "="))
         {
-            var identifiers = new List<string>();
-            if (Peek("IDENTIFIER"))
-            {
-                identifiers.Add(tokens[currentIndex].Value);
-                Match("IDENTIFIER");
-                while (Match("SEPARATOR", ","))
-                {
-                    if (Peek("IDENTIFIER"))
-                    {
-                        identifiers.Add(tokens[currentIndex].Value);
-                        Match("IDENTIFIER");
-                    }
-                    else
-                    {
-                        PrintError("Ожидается IDENTIFIER после ,");
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                PrintError("Ожидается хотя бы один IDENTIFIER в списке");
-            }
-            return identifiers;
+            Console.WriteLine(Errors.Syntax("После идентификатора должен быть ="));
+            HasError = true;
+            return;
         }
 
-        private ExprNode ParseExpr()
+        ParseExpression();
+
+        if (!CheckAndMove("KEYWORD", "TO"))
         {
-            var left = ParseTerm();
-            while (Match("OPERATOR", "+") || Match("OPERATOR", "-"))
-            {
-                var op = tokens[currentIndex - 1].Value;
-                var right = ParseTerm();
-                left = new BinaryOpNode(left, op, right);
-            }
-            return left;
+            Console.WriteLine(Errors.Syntax("После начального значения должно быть TO"));
+            HasError = true;
+            return;
         }
 
-        private ExprNode ParseTerm()
+        ParseExpression();
+
+        if (!CheckAndMove("KEYWORD", "DO"))
         {
-            var left = ParseFactor();
-            while (Match("OPERATOR", "*"))
-            {
-                var op = tokens[currentIndex - 1].Value;
-                var right = ParseFactor();
-                left = new BinaryOpNode(left, op, right);
-            }
-            return left;
+            Console.WriteLine(Errors.Syntax("После конечного значения должно быть DO"));
+            HasError = true;
+            return;
         }
 
-        private ExprNode ParseFactor()
+        // Парсим тело цикла
+        bool hasBody = false;
+        while (Current != null && !(Current.Type == "KEYWORD" && Current.Value == "END_FOR"))
         {
-            if (Peek("IDENTIFIER"))
-            {
-                var ident = tokens[currentIndex].Value;
-                Match("IDENTIFIER");
-                return new IdentifierNode(ident);
-            }
-            else if (Peek("NUMBER"))
-            {
-                var num = tokens[currentIndex].Value;
-                Match("NUMBER");
-                return new NumberNode(num);
-            }
-            else if (Match("SEPARATOR", "("))
-            {
-                var expr = ParseExpr();
-                if (Match("SEPARATOR", ")"))
-                {
-                    return expr;
-                }
-                else
-                {
-                    PrintError("Ожидается ) после выражения");
-                }
-            }
-            else if (Match("OPERATOR", "-"))
-            {
-                var factor = ParseFactor();
-                return new UnaryOpNode("-", factor);
-            }
-            else
-            {
-                PrintError($"Неожиданный токен в выражении: {tokens[currentIndex]}");
-                currentIndex++;
-            }
-            return null;
+            hasBody = true;
+            ParseStatement();
+            if (HasError) return;
         }
 
-        private bool Match(string type, string value = null)
+        if (!hasBody)
         {
-            if (currentIndex < tokens.Count && tokens[currentIndex].Type == type && (value == null || tokens[currentIndex].Value == value))
+            Console.WriteLine(Errors.Syntax("Тело цикла FOR не может быть пустым"));
+            HasError = true;
+            return;
+        }
+
+        if (!CheckAndMove("KEYWORD", "END_FOR"))
+        {
+            Console.WriteLine(Errors.Syntax("Цикл FOR должен завершаться END_FOR"));
+            HasError = true;
+            return;
+        }
+
+        if (!CheckAndMove("SEPARATOR", ";"))
+        {
+            Console.WriteLine(Errors.Syntax("После END_FOR должна быть ;"));
+            HasError = true;
+        }
+    }
+
+    private void ParsePrint()
+    {
+        if (!CheckAndMove("KEYWORD", "WRITE"))
+        {
+            Console.WriteLine(Errors.Syntax("Ожидалось ключевое слово WRITE"));
+            HasError = true;
+            return;
+        }
+
+        if (!CheckAndMove("SEPARATOR", "("))
+        {
+            Console.WriteLine(Errors.Syntax("После WRITE должна быть ("));
+            HasError = true;
+            return;
+        }
+
+        ParseExpression();
+
+        while (CheckAndMove("SEPARATOR", ","))
+        {
+            ParseExpression();
+        }
+
+        if (!CheckAndMove("SEPARATOR", ")"))
+        {
+            Console.WriteLine(Errors.Syntax("После аргументов должна быть )"));
+            HasError = true;
+            return;
+        }
+
+        if (!CheckAndMove("SEPARATOR", ";"))
+        {
+            Console.WriteLine(Errors.Syntax("После ) должна быть ;"));
+            HasError = true;
+        }
+    }
+
+    private void ParseAssignment()
+    {
+        if (!CheckAndMove("IDENTIFIER"))
+        {
+            Console.WriteLine(Errors.Syntax("Ожидался идентификатор"));
+            HasError = true;
+            return;
+        }
+
+        if (!CheckAndMove("OPERATOR", "="))
+        {
+            Console.WriteLine(Errors.Syntax("После идентификатора должен быть ="));
+            HasError = true;
+            return;
+        }
+
+        ParseExpression();
+
+        if (!CheckAndMove("SEPARATOR", ";"))
+        {
+            Console.WriteLine(Errors.Syntax("После выражения должна быть ;"));
+            HasError = true;
+        }
+    }
+
+    private void ParseExpression()
+    {
+        if (IsEnd)
+        {
+            Console.WriteLine(Errors.Syntax("Незавершенное выражение"));
+            HasError = true;
+            return;
+        }
+
+        // Парсим первый терм
+        ParseTerm();
+
+        // Парсим дополнительные термы с операторами
+        while (Current != null && Current.Type == "OPERATOR" &&
+               (Current.Value == "+" || Current.Value == "-" || Current.Value == "*" || Current.Value == "/"))
+        {
+            CheckAndMove("OPERATOR");
+            ParseTerm();
+        }
+    }
+
+    private void ParseTerm()
+    {
+        if (IsEnd)
+        {
+            Console.WriteLine(Errors.Syntax("Незавершенный терм в выражении"));
+            HasError = true;
+            return;
+        }
+
+        if (Current.Type == "IDENTIFIER" || Current.Type == "NUMBER")
+        {
+            CheckAndMove(Current.Type);
+        }
+        else if (Current.Type == "SEPARATOR" && Current.Value == "(")
+        {
+            CheckAndMove("SEPARATOR", "(");
+            ParseExpression();
+            if (!CheckAndMove("SEPARATOR", ")"))
             {
-                currentIndex++;
-                return true;
+                Console.WriteLine(Errors.Syntax("Незакрытая скобка"));
+                HasError = true;
+                return;
             }
+        }
+        else
+        {
+            HasError = true;
+        }
+    }
+
+    private bool CheckAndMove(string type, string value = null)
+    {
+        if (IsEnd)
+        {
+            Console.WriteLine(Errors.Syntax($"Неожиданный конец файла. Ожидался {type}({value})"));
+            HasError = true;
             return false;
         }
 
-        private bool Peek(string type, string value = null)
+        if (Current.Type == type && (value == null || Current.Value == value))
         {
-            return currentIndex < tokens.Count && tokens[currentIndex].Type == type && (value == null || tokens[currentIndex].Value == value);
+            position++;
+            return true;
         }
-        private bool PeekNext(string type, string value = null)
-        {
-            return currentIndex + 1 < tokens.Count && tokens[currentIndex + 1].Type == type && (value == null || tokens[currentIndex + 1].Value == value);
-        }
-        private void PrintError(string message)
-        {
-            hasError = true;
-            Console.WriteLine($"Синтаксическая ошибка: {message}");
-        }
-        public ProgramNode GetSyntaxTree() => syntaxTree;
+        return false;
     }
 }
