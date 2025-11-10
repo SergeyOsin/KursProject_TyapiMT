@@ -34,7 +34,6 @@ public class SemanticAnalyzer
         if (HasError) return;
         CheckUsages();
         if (HasError) return;
-        CheckUnusedVariables();
     }
 
     private void ExtractDeclarations()
@@ -120,18 +119,7 @@ public class SemanticAnalyzer
            
         }
     }
-
-    private void CheckUnusedVariables()
-    {
-        foreach (var variable in variables)
-            if (!variable.Value.IsUsed)
-            {
-                Console.WriteLine(Errors.Semantic($"Объявленная переменная '{variable.Key}' не используется"));
-                HasError = true;
-                return; 
-            }
-    }
-
+    
     private void CheckDeclared(string varName)
     {
         if (!variables.ContainsKey(varName))

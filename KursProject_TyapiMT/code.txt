@@ -1,9 +1,9 @@
 var a,b,i: integer;
-BEGIN
-a=3;
-a=b;
-for i=1 to 3 do
-b=a+i; 
+begin
+read(a);
+read(b);
+for i=1 to 2 do
+a=b+i;
 end_for;
 write(a,b);
-eNd
+end

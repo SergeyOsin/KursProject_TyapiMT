@@ -4,8 +4,5 @@ using Microsoft.Win32.SafeHandles;
 
 class Program
 {
-    static void Main(string[] args)
-    {
-        Interpreter.Start();
-    }
+    static void Main(string[] args) => Interpreter.Start();
 }
