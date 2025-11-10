@@ -87,7 +87,6 @@ namespace KursProject_TyapiMT
                     continue;
                 }
 
-                // Идентификаторы и ключевые слова
                 if (char.IsLetter(c) || c == '_')
                 {
                     int start = linePos;
