@@ -1,9 +1,7 @@
 var a,b,i: integer;
 begin
 read(a);
-read(b);
-for i=1 to 2 do
-a=b+i;
-end_for;
+b=a*2;
+a=b+a;
 write(a,b);
 end
